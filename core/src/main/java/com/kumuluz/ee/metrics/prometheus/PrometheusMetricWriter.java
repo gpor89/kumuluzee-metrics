@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2014-2017 Kumuluz and/or its affiliates
+ *  Copyright (c) 2014-2019 Kumuluz and/or its affiliates
  *  and other contributors as indicated by the @author tags and
  *  the contributor list.
  *
@@ -17,25 +17,37 @@
  *  out of or in connection with the software or the use or other dealings in the
  *  software. See the License for the specific language governing permissions and
  *  limitations under the License.
-*/
+ */
 package com.kumuluz.ee.metrics.prometheus;
 
-import org.eclipse.microprofile.metrics.*;
+import org.eclipse.microprofile.metrics.Counter;
+import org.eclipse.microprofile.metrics.Gauge;
+import org.eclipse.microprofile.metrics.Histogram;
+import org.eclipse.microprofile.metrics.Metadata;
+import org.eclipse.microprofile.metrics.Meter;
+import org.eclipse.microprofile.metrics.Metric;
+import org.eclipse.microprofile.metrics.MetricRegistry;
+import org.eclipse.microprofile.metrics.MetricUnits;
+import org.eclipse.microprofile.metrics.Timer;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Collections;
 import java.util.Map;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 /**
  * Prometheus metric writer.
  *
  * @author Urban Malc
  * @author Aljaž Blažej
+ * @author gpor89
  * @since 1.0.0
  */
 public class PrometheusMetricWriter {
+
+    private static final Pattern PROMETHEUS_NAME_REMOVE_PATTERN = Pattern.compile("\\{.*?\\}");
 
     private final static String APPENDEDSECONDS = "_seconds";
     private final static String APPENDEDBYTES = "_bytes";
@@ -74,15 +86,16 @@ public class PrometheusMetricWriter {
     }
 
     private void writeMetricsAsPrometheus(StringBuilder builder, String registryName, MetricRegistry registry,
-                                          String metricName) {
+        String metricName) {
         writeMetricMapAsPrometheus(builder, registryName,
-                Collections.singletonMap(metricName, registry.getMetrics().get(metricName)), registry.getMetadata());
+            Collections.singletonMap(metricName, registry.getMetrics().get(metricName)), registry.getMetadata());
     }
 
     private void writeMetricMapAsPrometheus(StringBuilder builder, String registryName, Map<String, Metric> metricMap,
-                                            Map<String, Metadata> metricMetadataMap) {
+        Map<String, Metadata> metricMetadataMap) {
         for (Map.Entry<String, Metric> entry : metricMap.entrySet()) {
-            String metricNamePrometheus = registryName + ":" + entry.getKey();
+            String metricNamePrometheus = registryName + ":" + PROMETHEUS_NAME_REMOVE_PATTERN.matcher(entry.getKey())
+                .replaceAll("");
             Metric metric = entry.getValue();
             String entryName = entry.getKey();
 
@@ -211,12 +224,12 @@ public class PrometheusMetricWriter {
                 PrometheusBuilder.buildCounter(builder, metricNamePrometheus, (Counter) metric, description, tags);
             } else if (Gauge.class.isInstance(metric)) {
                 PrometheusBuilder.buildGauge(builder, metricNamePrometheus, (Gauge) metric, description,
-                        conversionFactor, tags, appendUnit);
+                    conversionFactor, tags, appendUnit);
             } else if (Timer.class.isInstance(metric)) {
                 PrometheusBuilder.buildTimer(builder, metricNamePrometheus, (Timer) metric, description, tags);
             } else if (Histogram.class.isInstance(metric)) {
                 PrometheusBuilder.buildHistogram(builder, metricNamePrometheus, (Histogram) metric, description,
-                        conversionFactor, tags, appendUnit);
+                    conversionFactor, tags, appendUnit);
             } else if (Meter.class.isInstance(metric)) {
                 PrometheusBuilder.buildMeter(builder, metricNamePrometheus, (Meter) metric, description, tags);
             } else {
